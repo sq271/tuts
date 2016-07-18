@@ -1,0 +1,56 @@
+
+
+#[ CRUX.INSTALL.TUT ]#
+
+
+  ## net
+
+  ifconfig -a
+  dhcpcd enp0s25
+
+
+  ## disk
+
+  fdisk /dev/sda # swap,root, mk.bootable
+  mkswap /dev/sda1 && swapon /dev/sda1
+  mkfs.ext4 /dev/sda2
+  mount /dev/sda2 /mnt
+
+  
+  ## install crux && conf
+
+  setup
+  setup-chroot
+  passwd
+  vim /etc/fstab
+  vim /rc.conf
+  localedef -i en_US -f UTF-8 en_US.UTF-8
+  
+
+  ## kernel
+
+  cd /usr/src/linux-4.1.*
+  make menuconfig
+  make all && make modules_install
+  cp arch/x86_64/boot/bzImage /boot/vmlinux-$(uname -r)
+  cp System.map /boot
+
+
+  ## grub
+
+  grub-install /dev/sda
+  grub-mkconfig -o /boot/grub/grub.cfg
+  reboot
+
+
+  ## add contrib && update && install ports
+
+  ports -u
+  vim /etc/prt-get.conf
+  mv /etc/ports/contrib.rsync.inactive /etc/ports/contrib.rsync
+  ports -u
+  prt-get sysup
+
+  prt-get install htop tmux lynx tree irssi 
+
+   

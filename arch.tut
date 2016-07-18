@@ -1,0 +1,115 @@
+
+
+#[ ARCH.INSTALL.TUT ]#
+
+
+  ## net  
+  
+  ifconfig -a 
+  ping -c 3 www.google.com
+
+
+  ## disk
+
+  lsblk
+  sgdisk /dev/sda --zap-all
+  fdisk /dev/sda
+
+  ### fdisk cheatsheet
+  # 
+  #  o new dos label
+  #  n new partition; p primary; 1; def; +4G; t type 82 swap
+  #  n; p; 2; def;
+  #  a bootable; 2
+  #  w write and exit
+  #
+  ###
+
+  mkswap /dev/sda1 && swapon /dev/sda1
+  mkfs.ext4 /dev/sda2
+  mount /dev/sda2 /mnt
+
+  
+  ## mirrors && fstab
+  
+  nano /etc/pacman.d/mirrorlist # copy:(alt,6), paste:(ctrl,u), exit:(ctrl,x)
+  pacstrap -i /mnt base base-devel
+  genfstab -U -p /mnt >> /mnt/etc/fstab
+  nano /mnt/etc/fstab
+  
+
+  ## chroot && conf
+
+  arch-chroot /mnt
+  nano /etc/locale.gen # en_US.UTF-8
+  locale-gen
+  echo LANG=en_US.UTF-8 > /etc/locale.conf
+  export LANG=en_US.UTF-8
+  ln -s /usr/share/zoneinfo/America/Los_Angeles /etc/localtime
+  hwclock --systohc --utc
+  echo yourHostname > /etc/hostname
+  nano /etc/hosts
+  passwd
+  useradd -m -g users -G wheel,storage,power -s /bin/bash yourUserName
+  yourUserName passwd
+  visudo # uncomment %wheel ALL = (ALL) ALL
+  
+
+  ## grub && install
+
+  pacman -S grub-bios
+  grub-install --target=i386-pc --recheck /dev/sda
+  cp /usr/share/locale/en\@quot/LC_MESSAGES/grub.mo /boot/grub/locale/en.mo
+  grub-mkconfig -o /boot/grub/grub.cfg
+  
+  pacman -S alsa-utils wicd vim tmux lynx irssi htop mutt tree newsbeuter \
+            tamsyn-font git wget openssh
+
+  echo FONT=Tamsyn7x14r > /etc/vconsole.conf  
+
+  exit
+  umount /mnt
+  reboot # pull install media
+
+
+  ## ucode && services
+
+  login new user
+  ifconfig -a
+  sudo dhcpcd enp0s25
+  sudo pacman -S intel-ucode
+  sudo grub-mkconfig -o /boot/grub/grub.cfg
+  
+  sudo pacman -S xf86-video-intel
+  sudo vim /etc/mkinitcpio.conf # add i915 to modules
+  sudo mkinitcpio -p linux
+  
+  sudo systemctl start sshd.service
+  sudo systemctl enable sshd.service
+  sudo systemctl start sshd.socket
+  sudo systemctl enable sshd.socket
+  sudo systemctl start wicd
+  sudo systemctl enable wicd
+
+  vim /etc/systemd/logind.conf 
+  
+
+  ## x11
+  
+  sudo pacman -S xorg-server xorg-xinit xorg-server-utils mesa \
+                 xf86-input-synaptics rxvt-unicode chromiun
+
+  sudo pacman -Syu
+  
+  sftp myshell@someotherbox # get .dots
+  
+
+  ## dwm
+
+  git clone git://git.suckless.org/dwm
+  cp config.def.h config.h
+  make 
+  sudo make install
+  vim .xinitrc
+  startx 
+  

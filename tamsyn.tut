@@ -1,0 +1,35 @@
+
+#[ TAMSYN.FONTS ]#
+
+  ### psfu font for the framebuffer
+  ### this changed my life
+
+
+  ## gentoo
+
+  emerge --ask sys-apps/kbd
+  wget http://www.fial.com/~scott/tamsyn-font/download/tamsyn-font-1.11.tar.gz
+  tar xvf tamsyn-font-1.11.tar.gz
+  cp Tamsyn*.psf.gz /usr/share/consolefonts/
+  rm tamsyn-font-1.11.tar.gz tamsyn-font-1.11
+  setfont Tamsyn7x14r
+
+
+  ## crux
+
+  wget http://www.fial.com/~scott/tamsyn-font/download/tamsyn-font-1.11.tar.gz
+  tar xvf tamsyn-font-1.11.tar.gz
+  sudo cp Tamsyn*.psf.gz /usr/share/kbd/consolefonts/
+  rm tamsyn-font.1.11.tar.gz tamsyn-font-1.11
+  fc-cache -v -f
+  setfont Tamsyn7x14r
+
+
+  ## arch
+ 
+  sudo pacman -S tamsyn-font
+  setfont Tamsyn7x14r
+
+
+     
+ 

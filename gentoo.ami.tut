@@ -1,0 +1,206 @@
+
+
+#[ GENTOO.AMI.TUT ]#
+
+
+## host.instance
+
+launch an ec2 instance, 8gb wtih a second 8gb volume as /dev/sdb
+ ### i used an ubuntu ami
+
+ssh in to new instance
+sudo bash
+
+
+## partition.disk
+
+lsblk
+parted /dev/xvdb
+unit s
+mklabel msdos
+mkpart primary 4096 6G
+mkpart primary 11718656s 100%
+print
+quit
+
+
+## create.fs & mounts
+
+mkfs.ext4 /dev/xvdb1
+e2label /dev/xvdb1 temp-rootfs
+mkswap --label swap /dev/xvdb2
+
+mkdir -p /mnt/gentoo
+mount /dev/xvdb1 /mnt/gentoo
+swapon /dev/xvdb2
+
+
+## download.stage3
+
+cd /mnt/gentoo
+
+wget http://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-hardened/stage3-amd64-hardened+nomultilib-20160630.tar.bz2
+wget http://distfiles.gentoo.org/releases/snapshots/current/portage-latest.tar.xz
+
+tar xvpf stage3-*.tar.bz2
+tar xvf portage-latest.tar.xz -C /mnt/gentoo/usr/
+
+
+## chroot
+
+cp /etc/resolve.conf /mnt/gentoo/etc/
+
+mount -t proc none /mnt/gentoo/proc
+mount -o bind /dev /mnt/gentoo/dev
+
+chroot /mnt/gentoo /bin/bash
+env-update && source /etc/profile
+
+
+## configs
+
+nano /etc/portage/make.conf
+
+nano /etc/rc.conf
+
+eselect profile list
+eselect profile set X
+
+nano /etc/locale.gen
+locale-gen
+eselect locale list
+eselect locale set X
+
+rc-update delete keymaps boot
+
+ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
+echo "US/Pacific" > /etc/timezone
+
+nano /etc/conf.d/hostname
+nano /etc/hosts
+
+emerge dhcpcd
+nano /etc/conf.d/net
+ln -s /etc/init.d/net.lo /etc/init.d/net.eth0
+rc-update add net.eth0 default
+
+
+## kernel
+
+emerge hardened-sources
+
+cd /usr/src/linux
+make menuconfig
+
+make && make modules_install
+make install
+
+
+## gen.initramfs
+
+emerge genkernel
+genkernel --install initramfs
+
+
+## cloud.init
+
+passwd -d -l root
+rc-update add sshd default
+
+echo "app-admin/amazon-ec2-init" >> /etc/portage/package.accept_keywords
+emerge app-admin/amazon-ec2-init
+rc-update add amazon-ec2 boot
+
+
+## grub.stuffs
+
+emerge grub
+
+exit # exit.chroot
+
+cp /mnt/gentoo/boot/initram* /boot/
+cp /mnt/gentoo/boot/bm* /boot/
+cp /mnt/gentoo/boot/System.map* /boot/
+
+nano /boot/grub/grub.cfg
+
+reboot
+
+
+## log back in to instance
+
+vim .ssh/knownhosts # rm ip
+ssh back in as root # !ubuntu
+
+
+## clone.gentoo.to.first.vol
+
+mkdir /mnt/gentoo && mount /dev/xvdb1 /mnt/gentoo
+mkfs.ext4 /dev/xvda1
+e2label /dev/xvda1 cloudimg-rootfs
+mkdir -p /mnt/gentoo
+mount /dev/xvda1 /mnt/gentoo
+
+mkdir /mnt/gentoo/run
+mkdir /mnt/gentoo/proc
+mkdir /mnt/gentoo/mnt
+touch /mnt/gentoo/mnt/.keep
+mkdir /mnt/gentoo/sys
+mkdir /mnt/gentoo/tmp -m 1777
+cp -rp /bin /boot /dev /etc /home /lib /lib64 /media /opt /root /sbin /usr /var /mnt/gentoo
+
+
+## chroot
+
+mount -t proc none /mnt/gentoo/proc
+mount -o bind /dev /mnt/gentoo/dev
+chroot /mnt/gentoo /bin/bash
+env-update && source /etc/profile
+
+
+## grub.install
+
+grub2-install /dev/xvda
+nano /etc/default/grub
+grub2-mkconfig -o /boot/grub/grub.cfg
+
+nano /etc/fstab
+
+reboot
+
+
+## cleanup
+
+ssh back into instance as root
+
+nano /etc/conf.d/hostname
+nano /etc/hosts
+
+
+## update && install.things
+
+emerge --sync
+emerge --update --newuse --deep @world
+emerge tmux vim syslog-ng logrotate
+
+touch /forcefsck
+reboot
+
+ssh back into instance as root
+
+nano /etc/conf.d/hostname
+exit # kill.ssh.session
+
+
+## create.ami
+
+detach sdb from volumes
+create snapshot
+create image
+
+
+## test
+
+launch a new instance with the new ami
+
+HOORAY !!!

@@ -1,0 +1,149 @@
+
+
+#[ MINIMAL LINUX FROM SOURCE ]#
+
+
+# mnml.lfs(busybox||toybox||sbase+ubase)
+
+### format && mount partition
+### compile kernel && static binaries
+### create symlinks && init && initrd
+### boot
+
+#### i built these locally on metal, booted them from the grub cli
+#### my build system was crux 3.2 with gcc 5.4.0
+#### buildbox << dumpstered toshiba with an i3 and spare partitions
+#### the goal was to boot to mksh entirely from source
+
+# cyoa! << busybox||toybox||sbase+ubase ; GO! 
+
+
+
+## disk.format && disk.mount 
+
+su  # be root 
+mkfs.ext4 /dev/X  # X=partition.num
+mount /dev/X /mnt/whatever
+cd /mnt/whatever
+
+
+## mk.kernel
+
+wget https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.6.3.tar.xz
+
+tar xvf linux-4.6.3.tar.xz && cd linux-4.6.3
+make menuconfig
+make 
+cp arch/x86_64/boot/bzImage ../
+cd ..
+rm linux-4.6.3.tar.xz
+
+
+### busybox-1.25.0
+
+wget https:/www.busybox.net/downloads/busybox-1.25.0.tar.bz2
+
+tar xvjf busybox-1.25.0.tar.bz2 && cd busybox-1.25.0
+make menuconfig
+make && make install
+
+mv _install ../rootfs
+cd ../rootfs
+mkdir dev proc sys tmp
+rm linuxrc
+mknod dev/console c 5 1
+cd ..
+rm busybox-1.25.0.tar.b2
+
+
+### toybox-0.7.1
+
+wget http://www.landley.net/toybox/downloads/toybox-0.7.1.tar.gz
+
+mkdir rootfs && cd rootfs
+mkdir bin dev mnt proc sys sbin tmp usr usr/bin
+mknod dev/console c 5 1
+cd ..
+
+tar xvf toybox-0.7.1.tar.gz && cd toybox-0.7.1
+make menuconfig
+make
+
+cp toybox ../rootfs/bin
+cd ../rootfs/bin
+for i in $(toybox --long); do ln -s toybox $i; done
+cd ../../
+rm toybox-0.7.1.tar.gz
+
+
+### sbase+ubase
+
+git clone git://git.suckless.org/sbase
+git clone git://git.suckless.org/ubase
+
+mkdir rootfs && cd rootfs
+mkdir bin dev mnt proc sys sbin tmp usr usr/bin
+mknod dev/console c 5 1
+cd ..
+
+cd sbase
+make LDFLAGS="-s -static" sbase-box
+cp sbase-box ../rootfs/bin/sbase
+cd ../rootfs/bin
+for i in $(sbase); do ln -s sbase $i; done
+cd ../..
+
+cd ubase
+make LDFLAGS="-s -static" ubase-box
+cp ubase-box ../rootfs/bin/ubase
+cd ../rootfs/bin
+for i in $(ubase); do ln -s ubase $i; done
+cd ../..
+
+
+## mk.mksh
+
+wget https://www.mirbsd.org/MirOS/dist/mir/mksh/mksh-R52c.tgz
+
+tar xvf mksh-R52c.tgz && cd mksh
+LDSTATIC=-static ./Build.sh
+cp mksh ../rootfs/bin
+ln -s mksh sh
+cd ..
+rm mksh-R52c.tgz
+
+
+## mk.init
+
+#### mksh is optional for busybox, it has it's own sh.
+#### just launch /bin/sh instead of mksh
+
+cat >> init << EOF
+#!/bin/sh
+dmesg -n 1
+mount -t devtmpfs dev /dev
+mount -t proc none /proc
+mount -t sysfs none /sys
+while true; do /bin/mksh; done 
+EOF
+
+chmod +x init
+
+
+## mk.initrd
+
+find . | cpio -H newc -o | gzip > ../rootfs.cpio.gz
+
+
+## grub.cli
+
+set root=(hd0,X)  # X=partition.num
+linux /bzImage
+initrd /rootfs.cpio.gz
+boot
+
+
+# you should be looking at a shell now
+
+### YAY !!! YOU DID IT !!!
+
